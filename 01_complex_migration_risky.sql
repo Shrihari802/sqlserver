@@ -2,6 +2,7 @@
 -- Expected: may fail or require human-in-loop in automated migration pipelines.
 
 SET NOCOUNT ON;
+GO
 
 BEGIN TRY
     BEGIN TRANSACTION;
@@ -21,8 +22,8 @@ BEGIN TRY
             ORDER BY soh.OrderDate DESC, soh.SalesOrderID DESC
         ) AS rn
     INTO #order_stage
-    FROM xport.SalesOrderHeader soh WITH (NOLOCK)
-    INNER JOIN xport.SalesOrderDetail sod WITH (NOLOCK)
+    FROM SalesLT.SalesOrderHeader soh WITH (NOLOCK)
+    INNER JOIN SalesLT.SalesOrderDetail sod WITH (NOLOCK)
         ON soh.SalesOrderID = sod.SalesOrderID
     WHERE soh.OrderDate >= DATEADD(DAY, -365, GETDATE());
 
@@ -48,7 +49,7 @@ BEGIN TRY
                 c.LastName,
                 c.EmailAddress,
                 x.payload_xml
-            FROM xport.Customer c
+            FROM SalesLT.Customer c
             CROSS APPLY (SELECT @x AS payload_xml) x
             WHERE c.CustomerID IN (
                 SELECT DISTINCT CustomerID FROM #order_stage WHERE rn = 1
@@ -74,4 +75,3 @@ BEGIN CATCH
         ERROR_LINE() AS ErrorLine,
         ERROR_MESSAGE() AS ErrorMessage;
 END CATCH;
-

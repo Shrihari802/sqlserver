@@ -9,8 +9,8 @@ SELECT
     SUM(CAST(soh.TotalDue AS DECIMAL(18, 2))) AS total_revenue,
     MIN(soh.OrderDate) AS first_order_date,
     MAX(soh.OrderDate) AS last_order_date
-FROM xport.Customer c
-LEFT JOIN xport.SalesOrderHeader soh
+FROM SalesLT.Customer c
+LEFT JOIN SalesLT.SalesOrderHeader soh
     ON c.CustomerID = soh.CustomerID
 GROUP BY
     c.CustomerID,
