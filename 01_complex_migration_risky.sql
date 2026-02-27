@@ -61,6 +61,39 @@ BEGIN TRY
             @x = @xml;
     END;
 
+    -- INTENTIONAL_RISK_FOR_REVIEW:
+    -- Pattern 1 (typically fixable): window function uses alias in PARTITION BY.
+    -- Pattern 2 (typically fixable): ORDER BY used in CTAS-style statement.
+    -- Pattern 3 (intentionally hard): scalar subquery returns multiple columns.
+    -- Expected Databricks error class for Pattern 3:
+    -- INVALID_SUBQUERY_EXPRESSION.SCALAR_SUBQUERY_RETURN_MORE_THAN_ONE_OUTPUT_COLUMN
+    CREATE TABLE #risky_ctas
+    AS
+    SELECT
+        soh.CustomerID,
+        CONCAT(CAST(soh.CustomerID AS VARCHAR(20)), '_', CAST(soh.SalesOrderID AS VARCHAR(20))) AS rank_key,
+        ROW_NUMBER() OVER (
+            PARTITION BY rank_key
+            ORDER BY soh.OrderDate DESC
+        ) AS rn_alias_partition,
+        soh.SalesOrderID
+    FROM SalesLT.SalesOrderHeader soh
+    ORDER BY soh.OrderDate DESC;
+
+    SELECT TOP 10
+        rc.CustomerID,
+        (
+            SELECT
+                sod.ProductID,
+                sod.OrderQty,
+                sod.LineTotal
+            FROM SalesLT.SalesOrderDetail sod
+            WHERE sod.SalesOrderID = rc.SalesOrderID
+        ) AS risky_scalar_subquery_output
+    FROM #risky_ctas rc
+    WHERE rc.rn_alias_partition = 1
+    ORDER BY rc.CustomerID DESC;
+
     COMMIT TRANSACTION;
 END TRY
 BEGIN CATCH
