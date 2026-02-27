@@ -92,6 +92,14 @@ BEGIN TRY
         ) AS risky_scalar_subquery_output
     FROM #risky_ctas rc
     WHERE rc.rn_alias_partition = 1
+      AND (
+            SELECT
+                sod.ProductID,
+                sod.OrderQty,
+                sod.LineTotal
+            FROM SalesLT.SalesOrderDetail sod
+            WHERE sod.SalesOrderID = rc.SalesOrderID
+          ) IS NOT NULL
     ORDER BY rc.CustomerID DESC;
 
     COMMIT TRANSACTION;
