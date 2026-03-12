@@ -62,23 +62,23 @@ BEGIN TRY
     END;
 
     -- INTENTIONAL_RISK_FOR_REVIEW:
-    -- Pattern 1 (typically fixable): window function uses alias in PARTITION BY.
-    -- Pattern 2 (typically fixable): ORDER BY used in CTAS-style statement.
-    -- Pattern 3 (intentionally hard): scalar subquery returns multiple columns.
-    -- Expected Databricks error class for Pattern 3:
+    -- This block is valid in SQL Server, but intentionally fails in Databricks.
+    -- Reasons:
+    -- 1) Scalar subquery returns multiple columns (not allowed in Databricks).
+    -- 2) Scalar subquery returns multiple columns (not supported in Databricks SQL).
+    -- Expected Databricks error class:
     -- INVALID_SUBQUERY_EXPRESSION.SCALAR_SUBQUERY_RETURN_MORE_THAN_ONE_OUTPUT_COLUMN
-    CREATE TABLE #risky_ctas
-    AS
     SELECT
         soh.CustomerID,
         CONCAT(CAST(soh.CustomerID AS VARCHAR(20)), '_', CAST(soh.SalesOrderID AS VARCHAR(20))) AS rank_key,
         ROW_NUMBER() OVER (
-            PARTITION BY rank_key
+            PARTITION BY CONCAT(CAST(soh.CustomerID AS VARCHAR(20)), '_', CAST(soh.SalesOrderID AS VARCHAR(20)))
             ORDER BY soh.OrderDate DESC
         ) AS rn_alias_partition,
         soh.SalesOrderID
+    INTO #risky_ctas
     FROM SalesLT.SalesOrderHeader soh
-    ORDER BY soh.OrderDate DESC;
+    ;
 
     SELECT TOP 10
         rc.CustomerID,
@@ -89,6 +89,7 @@ BEGIN TRY
                 sod.LineTotal
             FROM SalesLT.SalesOrderDetail sod
             WHERE sod.SalesOrderID = rc.SalesOrderID
+            FOR XML PATH('row'), ROOT('payload')
         ) AS risky_scalar_subquery_output
     FROM #risky_ctas rc
     WHERE rc.rn_alias_partition = 1
@@ -99,6 +100,7 @@ BEGIN TRY
                 sod.LineTotal
             FROM SalesLT.SalesOrderDetail sod
             WHERE sod.SalesOrderID = rc.SalesOrderID
+            FOR XML PATH('row'), ROOT('payload')
           ) IS NOT NULL
     ORDER BY rc.CustomerID DESC;
 
